@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>cl.duoc</groupId>
-	<artifactId>tienda-render</artifactId>
+		<artifactId>nevula</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>tienda-render</name>
-	<description>API REST Spring Boot + Neon desplegada en Render - DSY1104 Clase 2</description>
+	<name>nevula</name>
+	<description>API REST de Nevula: Spring Boot + Neon, desplegada en Render</description>
 	<properties>
 		<java.version>17</java.version>
 	</properties>

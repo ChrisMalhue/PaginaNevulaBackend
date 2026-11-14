@@ -135,7 +135,7 @@ Tu backend de la Clase 1 no tiene todo lo que usa esta guía (el filtro `?nombre
 
 Después de copiar:
 
-1. **La primera línea (`package`) de cada `.java` copiado** debe ser tu paquete principal + la carpeta. Si tu clase principal dice `package com.misequipo.tienda;`, el controller de salud dice `package com.misequipo.tienda.salud;`. Si usaste el proyecto de la Clase 1 tal cual (`cl.duoc.tiendaneon`), no cambies nada.
+1. **La primera línea (`package`) de cada `.java` copiado** debe ser tu paquete principal + la carpeta. Si tu clase principal dice `package com.misequipo.tienda;`, el controller de salud dice `package com.misequipo.tienda.salud;`. Si usaste el proyecto de la Clase 1 tal cual (`cl.duoc.nevulaback`), no cambies nada.
 2. En `application.properties`, revisa estas dos líneas (la Clase 1 ya trae la primera; la segunda agrega el puerto 8081 de Expo web):
 
    ```properties
