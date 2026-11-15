@@ -1,3 +1,5 @@
+# Este puede ver borrado si es que queremos, ya que aun no incluimos render
+
 # Receta para que Render construya y ejecute esta API.
 # Render no trae Java instalado: con este archivo arma un contenedor que sí lo tiene.
 

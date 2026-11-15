@@ -13,10 +13,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-@JsonPropertyOrder({"id", "fecha", "horaInicio", "horaFin", "local", "estado", "imagen"})
+@JsonPropertyOrder({"id", "fecha", "horaInicio", "horaFin", "local", "estado", "imagen", "linkEntradas", "genero"})
 @Entity
 @Table(name = "eventos")
 public class Evento {
@@ -52,17 +55,30 @@ public class Evento {
     @JoinColumn(name = "imagen_id", nullable = false)
     private Imagen imagen;
 
+    /** Opcional: link para comprar entradas. Solo se muestra en la página si el evento está Programado. */
+    @Size(max = 500, message = "El link de entradas puede tener como máximo 500 caracteres")
+    @Pattern(regexp = "^https://.*", message = "El link de entradas debe empezar con https://")
+    @Column(length = 500)
+    private String linkEntradas;
+
+    /** Opcional: género musical del evento. */
+    @Size(max = 50, message = "El género puede tener como máximo 50 caracteres")
+    @Column(length = 50)
+    private String genero;
+
     public Evento() {
     }
 
     public Evento(LocalDate fecha, LocalTime horaInicio, LocalTime horaFin,
-                    Local local, Estado estado, Imagen imagen) {
+                  Local local, Estado estado, Imagen imagen, String linkEntradas, String genero) {
         this.fecha = fecha;
         this.horaInicio = horaInicio;
         this.horaFin = horaFin;
         this.local = local;
         this.estado = estado;
         this.imagen = imagen;
+        this.linkEntradas = linkEntradas;
+        this.genero = genero;
     }
 
     public Long getId() { return id; }
@@ -85,4 +101,10 @@ public class Evento {
 
     public Imagen getImagen() { return imagen; }
     public void setImagen(Imagen imagen) { this.imagen = imagen; }
+
+    public String getLinkEntradas() { return linkEntradas; }
+    public void setLinkEntradas(String linkEntradas) { this.linkEntradas = linkEntradas; }
+
+    public String getGenero() { return genero; }
+    public void setGenero(String genero) { this.genero = genero; }
 }

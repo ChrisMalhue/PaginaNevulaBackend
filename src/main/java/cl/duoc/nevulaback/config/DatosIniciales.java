@@ -23,14 +23,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class DatosIniciales implements CommandLineRunner {
 
-    // Links de los flyers en ImgBB (evento1 a evento6)
-    private static final String IMG_1 = "https://i.ibb.co/vCGX0hCd/evento1.webp";
-    private static final String IMG_2 = "https://i.ibb.co/hx7xFJh8/evento2.webp";
-    private static final String IMG_3 = "https://i.ibb.co/KPBzSQ4/evento3.webp";
-    private static final String IMG_4 = "https://i.ibb.co/5WYyL1TN/evento4.webp";
-    private static final String IMG_5 = "https://i.ibb.co/JW9mXd9z/evento5.webp";
-    private static final String IMG_6 = "https://i.ibb.co/9m11bs4R/evento6.webp";
-
     private final RegionRepository regionRepository;
     private final ComunaRepository comunaRepository;
     private final LocalRepository localRepository;
@@ -57,148 +49,69 @@ public class DatosIniciales implements CommandLineRunner {
     @Override
     public void run(String... args) {
 
-        // 1) Regiones
-        if (regionRepository.count() == 0) {
-            regionRepository.saveAll(List.of(
-                new Region("Arica y Parinacota"),
-                new Region("Metropolitana")
-            ));
+        // Si ya hay datos cargados, no hace nada (para limpiar: TRUNCATE de todas las tablas).
+        if (regionRepository.count() > 0) {
+            return;
         }
+
+        // 1) Regiones
+        Region arica = regionRepository.save(new Region("Arica y Parinacota"));
+        Region metropolitana = regionRepository.save(new Region("Metropolitana"));
 
         // 2) Comunas
-        if (comunaRepository.count() == 0) {
-            Region arica = buscarRegion("Arica y Parinacota");
-            Region metropolitana = buscarRegion("Metropolitana");
-
-            comunaRepository.saveAll(List.of(
-                new Comuna("Arica", arica),
-                new Comuna("Camarones", arica),
-
-                new Comuna("Santiago", metropolitana),
-                new Comuna("Providencia", metropolitana),
-                new Comuna("Las Condes", metropolitana),
-                new Comuna("Maipú", metropolitana),
-                new Comuna("Puente Alto", metropolitana)
-            ));
-        }
-        // Ñuñoa va aparte, por si las comunas ya estaban cargadas de antes
-        crearComunaSiNoExiste("Ñuñoa", buscarRegion("Metropolitana"));
+        comunaRepository.saveAll(List.of(
+            new Comuna("Arica", arica),
+            new Comuna("Camarones", arica),
+            new Comuna("Maipú", metropolitana),
+            new Comuna("Puente Alto", metropolitana)
+        ));
+        Comuna santiago = comunaRepository.save(new Comuna("Santiago", metropolitana));
+        Comuna providencia = comunaRepository.save(new Comuna("Providencia", metropolitana));
+        Comuna lasCondes = comunaRepository.save(new Comuna("Las Condes", metropolitana));
+        Comuna nunoa = comunaRepository.save(new Comuna("Ñuñoa", metropolitana));
 
         // 3) Estados
-        if (estadoRepository.count() == 0) {
-            estadoRepository.saveAll(List.of(
-                new Estado("Programado"),
-                new Estado("Hoy"),
-                new Estado("Finalizado"),
-                new Estado("Cancelado")
-            ));
-        }
+        estadoRepository.save(new Estado("Programado"));
+        estadoRepository.save(new Estado("Hoy"));
+        Estado finalizado = estadoRepository.save(new Estado("Finalizado"));
+        estadoRepository.save(new Estado("Cancelado"));
 
-        // 4) Imágenes (cada una se crea solo si su link no existe)
-        crearImagenSiNoExiste(IMG_1, "Flyer Azotea Los Dominicos");
-        crearImagenSiNoExiste(IMG_2, "Flyer Save the Date Secret Spot Providencia");
-        crearImagenSiNoExiste(IMG_3, "Flyer Sequoia Sala Mistral");
-        crearImagenSiNoExiste(IMG_4, "Flyer Save the Date Spot Escuela Militar");
-        crearImagenSiNoExiste(IMG_5, "Flyer Secret Spot Ñuñoa");
-        crearImagenSiNoExiste(IMG_6, "Flyer Rock x Palestina");
+        // 4) Imágenes (flyers en ImgBB, de evento1 a evento6)
+        Imagen img1 = imagenRepository.save(new Imagen(
+            "https://i.ibb.co/vCGX0hCd/evento1.webp", "Flyer Azotea Los Dominicos"));
+        Imagen img2 = imagenRepository.save(new Imagen(
+            "https://i.ibb.co/hx7xFJh8/evento2.webp", "Flyer Save the Date Secret Spot Providencia"));
+        Imagen img3 = imagenRepository.save(new Imagen(
+            "https://i.ibb.co/KPBzSQ4/evento3.webp", "Flyer Sequoia Sala Mistral"));
+        Imagen img4 = imagenRepository.save(new Imagen(
+            "https://i.ibb.co/5WYyL1TN/evento4.webp", "Flyer Save the Date Spot Escuela Militar"));
+        Imagen img5 = imagenRepository.save(new Imagen(
+            "https://i.ibb.co/JW9mXd9z/evento5.webp", "Flyer Secret Spot Ñuñoa"));
+        Imagen img6 = imagenRepository.save(new Imagen(
+            "https://i.ibb.co/9m11bs4R/evento6.webp", "Flyer Rock x Palestina"));
 
-        // 5) Locales (cada uno se crea solo si no existe).
-        // Los Secret Spot son secretos: no llevan dirección ni link de mapa.
-        crearLocalSiNoExiste("Azotea Los Dominicos", buscarComuna("Las Condes"));
-        crearLocalSiNoExiste("Secret Spot Providencia", buscarComuna("Providencia"));
-        crearLocalSiNoExiste("Sala Mistral", buscarComuna("Santiago"));
-        crearLocalSiNoExiste("Spot Escuela Militar", buscarComuna("Las Condes"));
-        crearLocalSiNoExiste("Secret Spot Ñuñoa", buscarComuna("Ñuñoa"));
-        crearLocalSiNoExiste("Casa FECH", buscarComuna("Santiago"));
+        // 5) Locales. Los Secret Spot son secretos: no llevan dirección ni link de mapa.
+        Local azotea = localRepository.save(new Local("Azotea Los Dominicos", null, null, lasCondes));
+        Local secretProvidencia = localRepository.save(new Local("Secret Spot Providencia", null, null, providencia));
+        Local salaMistral = localRepository.save(new Local("Sala Mistral", null, null, santiago));
+        Local escuelaMilitar = localRepository.save(new Local("Spot Escuela Militar", null, null, lasCondes));
+        Local secretNunoa = localRepository.save(new Local("Secret Spot Ñuñoa", null, null, nunoa));
+        Local casaFech = localRepository.save(new Local("Casa FECH", null, null, santiago));
 
-        // 6) Eventos (siempre al final: dependen de locales, estados e imágenes)
-        if (eventoRepository.count() == 0) {
-            Estado finalizado = buscarEstado("Finalizado");
-
-            eventoRepository.saveAll(List.of(
-                // evento1: Azotea Los Dominicos
-                new Evento(LocalDate.of(2025, 6, 21), LocalTime.of(18, 0), LocalTime.of(2, 0),
-                    buscarLocal("Azotea Los Dominicos"), finalizado, buscarImagen(IMG_1)),
-                // evento2: Secret Spot Providencia
-                new Evento(LocalDate.of(2025, 9, 6), LocalTime.of(18, 0), LocalTime.of(4, 30),
-                    buscarLocal("Secret Spot Providencia"), finalizado, buscarImagen(IMG_2)),
-                // evento3: Sala Mistral
-                new Evento(LocalDate.of(2025, 11, 6), LocalTime.of(22, 0), LocalTime.of(4, 0),
-                    buscarLocal("Sala Mistral"), finalizado, buscarImagen(IMG_3)),
-                // evento4: Spot Escuela Militar
-                new Evento(LocalDate.of(2026, 5, 8), LocalTime.of(23, 0), LocalTime.of(5, 0),
-                    buscarLocal("Spot Escuela Militar"), finalizado, buscarImagen(IMG_4)),
-                // evento5: Secret Spot Ñuñoa
-                new Evento(LocalDate.of(2026, 8, 7), LocalTime.of(22, 0), LocalTime.of(3, 0),
-                    buscarLocal("Secret Spot Ñuñoa"), finalizado, buscarImagen(IMG_5)),
-                // evento6: Casa FECH
-                new Evento(LocalDate.of(2026, 9, 12), LocalTime.of(15, 0), LocalTime.of(21, 0),
-                    buscarLocal("Casa FECH"), finalizado, buscarImagen(IMG_6))
-            ));
-        }
-    }
-
-    // ---------- crear si no existe ----------
-
-    private void crearComunaSiNoExiste(String nombre, Region region) {
-        boolean existe = comunaRepository.findByNombreContainingIgnoreCase(nombre)
-            .stream()
-            .anyMatch(c -> c.getNombre().equalsIgnoreCase(nombre));
-        if (!existe) {
-            comunaRepository.save(new Comuna(nombre, region));
-        }
-    }
-
-    private void crearLocalSiNoExiste(String nombre, Comuna comuna) {
-        boolean existe = localRepository.findByNombreContainingIgnoreCase(nombre)
-            .stream()
-            .anyMatch(l -> l.getNombre().equalsIgnoreCase(nombre));
-        if (!existe) {
-            localRepository.save(new Local(nombre, null, null, comuna));
-        }
-    }
-
-    private void crearImagenSiNoExiste(String url, String descripcion) {
-        if (imagenRepository.findByUrl(url).isEmpty()) {
-            imagenRepository.save(new Imagen(url, descripcion));
-        }
-    }
-
-    // ---------- buscar ----------
-
-    private Region buscarRegion(String nombre) {
-        return regionRepository.findByNombreContainingIgnoreCase(nombre)
-            .stream()
-            .filter(r -> r.getNombre().equalsIgnoreCase(nombre))
-            .findFirst()
-            .orElseThrow();
-    }
-
-    private Comuna buscarComuna(String nombre) {
-        return comunaRepository.findByNombreContainingIgnoreCase(nombre)
-            .stream()
-            .filter(c -> c.getNombre().equalsIgnoreCase(nombre))
-            .findFirst()
-            .orElseThrow();
-    }
-
-    private Estado buscarEstado(String nombre) {
-        return estadoRepository.findByNombreContainingIgnoreCase(nombre)
-            .stream()
-            .filter(e -> e.getNombre().equalsIgnoreCase(nombre))
-            .findFirst()
-            .orElseThrow();
-    }
-
-    private Local buscarLocal(String nombre) {
-        return localRepository.findByNombreContainingIgnoreCase(nombre)
-            .stream()
-            .filter(l -> l.getNombre().equalsIgnoreCase(nombre))
-            .findFirst()
-            .orElseThrow();
-    }
-
-    private Imagen buscarImagen(String url) {
-        return imagenRepository.findByUrl(url).orElseThrow();
+        // 6) Eventos: fecha, hora de inicio, hora de fin, local, estado, imagen
+        eventoRepository.saveAll(List.of(
+            new Evento(LocalDate.of(2025, 6, 21), LocalTime.of(18, 0), LocalTime.of(2, 0),
+                azotea, finalizado, img1, null, null),
+            new Evento(LocalDate.of(2025, 9, 6), LocalTime.of(18, 0), LocalTime.of(4, 30),
+                secretProvidencia, finalizado, img2, null, null),
+            new Evento(LocalDate.of(2025, 11, 6), LocalTime.of(22, 0), LocalTime.of(4, 0),
+                salaMistral, finalizado, img3, null, null),
+            new Evento(LocalDate.of(2026, 5, 8), LocalTime.of(23, 0), LocalTime.of(5, 0),
+                escuelaMilitar, finalizado, img4, null, null),
+            new Evento(LocalDate.of(2026, 8, 7), LocalTime.of(22, 0), LocalTime.of(3, 0),
+                secretNunoa, finalizado, img5, null, null),
+            new Evento(LocalDate.of(2026, 9, 12), LocalTime.of(15, 0), LocalTime.of(21, 0),
+                casaFech, finalizado, img6, null, null)
+        ));
     }
 }

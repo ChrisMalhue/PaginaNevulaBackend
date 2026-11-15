@@ -9,6 +9,7 @@ import cl.duoc.nevulaback.tablas.local.Local;
 import cl.duoc.nevulaback.tablas.local.LocalRepository;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -70,11 +71,13 @@ public class EventoController {
     /** POST /api/eventos -> 201. La fecha no puede ser anterior a hoy. */
     @PostMapping
     public ResponseEntity<Evento> crear(@Valid @RequestBody Evento evento) {
-        validacion.fechaNoPasada(evento.getFecha());
         evento.setId(null);
         evento.setLocal(buscarLocal(evento.getLocal().getId()));
         evento.setEstado(buscarEstado(evento.getEstado().getId()));
         evento.setImagen(buscarImagen(evento.getImagen().getId()));
+        if (esProgramado(evento.getEstado())) {
+        validacion.fechaNoPasada(evento.getFecha());
+        }
         Evento guardado = repository.save(evento);
         return ResponseEntity.created(URI.create("/api/eventos/" + guardado.getId())).body(guardado);
     }
@@ -83,15 +86,22 @@ public class EventoController {
     @PutMapping("/{id}")
     public Evento actualizar(@PathVariable Long id, @Valid @RequestBody Evento datos) {
         Evento evento = buscar(id);
-        if (!datos.getFecha().equals(evento.getFecha())) {
+        Estado estado = buscarEstado(datos.getEstado().getId());
+
+        boolean cambioFecha = !datos.getFecha().equals(evento.getFecha());
+        boolean cambioEstado = !estado.getId().equals(evento.getEstado().getId());
+        if (esProgramado(estado) && (cambioFecha || cambioEstado)) {
         validacion.fechaNoPasada(datos.getFecha());
         }
+
         evento.setFecha(datos.getFecha());
         evento.setHoraInicio(datos.getHoraInicio());
         evento.setHoraFin(datos.getHoraFin());
         evento.setLocal(buscarLocal(datos.getLocal().getId()));
-        evento.setEstado(buscarEstado(datos.getEstado().getId()));
+        evento.setEstado(estado);
         evento.setImagen(buscarImagen(datos.getImagen().getId()));
+        evento.setLinkEntradas(datos.getLinkEntradas());
+        evento.setGenero(datos.getGenero());
         return repository.save(evento);
     }
 
@@ -99,17 +109,26 @@ public class EventoController {
     @PatchMapping("/{id}")
     public Evento modificar(@PathVariable Long id, @RequestBody Evento datos) {
         Evento evento = buscar(id);
-        if (datos.getFecha() != null) {
-        if (!datos.getFecha().equals(evento.getFecha())) {
-            validacion.fechaNoPasada(datos.getFecha());
+
+        LocalDate fechaNueva = datos.getFecha() != null ? datos.getFecha() : evento.getFecha();
+        Estado estadoNuevo = datos.getEstado() != null
+            ? buscarEstado(datos.getEstado().getId())
+            : evento.getEstado();
+
+        boolean cambioFecha = !fechaNueva.equals(evento.getFecha());
+        boolean cambioEstado = !estadoNuevo.getId().equals(evento.getEstado().getId());
+        if (esProgramado(estadoNuevo) && (cambioFecha || cambioEstado)) {
+        validacion.fechaNoPasada(fechaNueva);
         }
-        evento.setFecha(datos.getFecha());
-        }
+
+        evento.setFecha(fechaNueva);
+        evento.setEstado(estadoNuevo);
         if (datos.getHoraInicio() != null) evento.setHoraInicio(datos.getHoraInicio());
         if (datos.getHoraFin() != null) evento.setHoraFin(datos.getHoraFin());
         if (datos.getLocal() != null) evento.setLocal(buscarLocal(datos.getLocal().getId()));
-        if (datos.getEstado() != null) evento.setEstado(buscarEstado(datos.getEstado().getId()));
         if (datos.getImagen() != null) evento.setImagen(buscarImagen(datos.getImagen().getId()));
+        if (datos.getLinkEntradas() != null) evento.setLinkEntradas(datos.getLinkEntradas());
+        if (datos.getGenero() != null) evento.setGenero(datos.getGenero());
         validacion.validar(evento);
         return repository.save(evento);
     }
@@ -119,6 +138,12 @@ public class EventoController {
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         repository.delete(buscar(id));
         return ResponseEntity.noContent().build();
+    }
+
+    // Metodos usados en el controller
+
+    private boolean esProgramado(Estado estado) {
+        return "Programado".equalsIgnoreCase(estado.getNombre());
     }
 
     private Evento buscar(Long id) {
