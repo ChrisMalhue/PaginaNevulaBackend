@@ -1,9 +1,14 @@
 package cl.duoc.nevulaback.tablas.region;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.net.URI;
 import java.util.List;
-import org.springframework.http.HttpStatus;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,72 +20,63 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
-import cl.duoc.nevulaback.config.Validacion;
 
-/** Rutas del recurso "regiones". Todas empiezan con /api/regiones. */
 @RestController
 @RequestMapping("/api/regiones")
+@Tag(name = "Regiones", description = "Operaciones relacionadas con las regiones")
 public class RegionController {
 
-  private final RegionRepository repository;
-  private final Validacion validacion;
+    private final RegionService service;
+    private final RegionModelAssembler assembler;
 
-
-  public RegionController(RegionRepository repository, Validacion validacion) {
-    this.repository = repository;
-    this.validacion = validacion;
-  }
-
-  /** GET /api/regiones o GET /api/regiones?nombre=met */
-  @GetMapping
-  public List<Region> listar(@RequestParam(required = false) String nombre) {
-    if (nombre == null || nombre.isBlank()) {
-      return repository.findAll();
+    public RegionController(RegionService service, RegionModelAssembler assembler) {
+      this.service = service;
+      this.assembler = assembler;
     }
-    return repository.findByNombreContainingIgnoreCase(nombre);
-  }
 
-  /** GET /api/regiones/5 -> 200, o 404 si no existe. */
-  @GetMapping("/{id}")
-  public Region obtener(@PathVariable Long id) {
-    return buscar(id);
-  }
+    @GetMapping
+    @Operation(summary = "Obtener todas las regiones",
+        description = "Lista las regiones. Con ?nombre=met filtra por nombre")
+    public CollectionModel<EntityModel<Region>> obtenerTodos(@RequestParam(required = false) String nombre) {
+      List<EntityModel<Region>> regiones = service.obtenerTodos(nombre).stream()
+          .map(assembler::toModel)
+          .toList();
+      return CollectionModel.of(regiones,
+          linkTo(methodOn(RegionController.class).obtenerTodos(null)).withSelfRel());
+    }
 
-  /** POST /api/regiones -> 201 Created, con el header Location. */
-  @PostMapping
-  public ResponseEntity<Region> crear(@Valid @RequestBody Region region) {
-    region.setId(null);
-    Region guardada = repository.save(region);
-    return ResponseEntity.created(URI.create("/api/regiones/" + guardada.getId())).body(guardada);
-  }
+    @GetMapping("/{id}")
+    @Operation(summary = "Obtener una región por su ID", description = "Responde 404 si no existe")
+    public EntityModel<Region> buscarPorId(@PathVariable Long id) {
+      return assembler.toModel(service.buscarPorId(id));
+    }
 
-  /** PUT /api/regiones/5 -> reemplaza la región COMPLETA. */
-  @PutMapping("/{id}")
-  public Region actualizar(@PathVariable Long id, @Valid @RequestBody Region datos) {
-    Region region = buscar(id);
-    region.setNombre(datos.getNombre());
-    return repository.save(region);
-  }
+    @PostMapping
+    @Operation(summary = "Agregar una región", description = "Crea una región y responde 201")
+    public ResponseEntity<EntityModel<Region>> crear(@Valid @RequestBody Region region) {
+      Region guardada = service.guardar(region);
+      return ResponseEntity
+          .created(linkTo(methodOn(RegionController.class).buscarPorId(guardada.getId())).toUri())
+          .body(assembler.toModel(guardada));
+    }
 
-    /** PATCH /api/regiones/5 -> cambia solo los campos enviados. */
-  @PatchMapping("/{id}")
-  public Region modificar(@PathVariable Long id, @RequestBody Region datos) {
-    Region region = buscar(id);
-    if (datos.getNombre() != null) region.setNombre(datos.getNombre());
-    validacion.validar(region);
-    return repository.save(region);
-  }
+    @PutMapping("/{id}")
+    @Operation(summary = "Actualizar la región completa", description = "Reemplaza todos los datos de la región")
+    public EntityModel<Region> actualizar(@PathVariable Long id, @Valid @RequestBody Region region) {
+      return assembler.toModel(service.actualizar(id, region));
+    }
 
-  /** DELETE /api/regiones/5 -> 204 sin cuerpo. */
-  @DeleteMapping("/{id}")
-  public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-    repository.delete(buscar(id));
-    return ResponseEntity.noContent().build();
-  }
+    @PatchMapping("/{id}")
+    @Operation(summary = "Actualizar parte de una región", description = "Cambia solo los campos enviados")
+    public EntityModel<Region> actualizarParcial(@PathVariable Long id, @RequestBody Region region) {
+      return assembler.toModel(service.actualizarParcial(id, region));
+    }
 
-  private Region buscar(Long id) {
-    return repository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Región " + id + " no existe"));
-  }
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar una región",
+        description = "Responde 204. Si tiene comunas asociadas, responde 409")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+      service.eliminar(id);
+      return ResponseEntity.noContent().build();
+    }
 }

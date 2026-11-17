@@ -1,10 +1,14 @@
 package cl.duoc.nevulaback.tablas.imagen;
 
-import cl.duoc.nevulaback.config.Validacion;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.net.URI;
 import java.util.List;
-import org.springframework.http.HttpStatus;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,67 +19,64 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
-/** Rutas del recurso "imagenes". Todas empiezan con /api/imagenes. */
 @RestController
 @RequestMapping("/api/imagenes")
+@Tag(name = "Imágenes", description = "Flyers de los eventos. Solo se guarda el link (ImgBB), no el archivo")
 public class ImagenController {
 
-  private final ImagenRepository repository;
-  private final Validacion validacion;
+  private final ImagenService service;
+  private final ImagenModelAssembler assembler;
 
-  public ImagenController(ImagenRepository repository, Validacion validacion) {
-    this.repository = repository;
-    this.validacion = validacion;
+  public ImagenController(ImagenService service, ImagenModelAssembler assembler) {
+    this.service = service;
+    this.assembler = assembler;
   }
 
   @GetMapping
-  public List<Imagen> listar() {
-    return repository.findAll();
+  @Operation(summary = "Obtener todas las imágenes", description = "Lista todas las imágenes guardadas")
+  public CollectionModel<EntityModel<Imagen>> obtenerTodos() {
+    List<EntityModel<Imagen>> imagenes = service.obtenerTodos().stream()
+        .map(assembler::toModel)
+        .toList();
+    return CollectionModel.of(imagenes,
+        linkTo(methodOn(ImagenController.class).obtenerTodos()).withSelfRel());
   }
 
   @GetMapping("/{id}")
-  public Imagen obtener(@PathVariable Long id) {
-    return buscar(id);
+  @Operation(summary = "Obtener una imagen por su ID", description = "Responde 404 si no existe")
+  public EntityModel<Imagen> buscarPorId(@PathVariable Long id) {
+    return assembler.toModel(service.buscarPorId(id));
   }
 
-  /** POST /api/imagenes -> 201 Created, con el header Location. */
   @PostMapping
-  public ResponseEntity<Imagen> crear(@Valid @RequestBody Imagen imagen) {
-    imagen.setId(null);
-    Imagen guardada = repository.save(imagen);
-    return ResponseEntity.created(URI.create("/api/imagenes/" + guardada.getId())).body(guardada);
+  @Operation(summary = "Agregar una imagen",
+      description = "Guarda el link de la imagen (ya subida a ImgBB) y responde 201. "
+          + "La URL debe empezar con https:// y no puede repetirse (409)")
+  public ResponseEntity<EntityModel<Imagen>> crear(@Valid @RequestBody Imagen imagen) {
+    Imagen guardada = service.guardar(imagen);
+    return ResponseEntity
+        .created(linkTo(methodOn(ImagenController.class).buscarPorId(guardada.getId())).toUri())
+        .body(assembler.toModel(guardada));
   }
 
-  /** PUT /api/imagenes/5 -> reemplaza la imagen COMPLETA. */
   @PutMapping("/{id}")
-  public Imagen actualizar(@PathVariable Long id, @Valid @RequestBody Imagen datos) {
-    Imagen imagen = buscar(id);
-    imagen.setUrl(datos.getUrl());
-    imagen.setDescripcion(datos.getDescripcion());
-    return repository.save(imagen);
+  @Operation(summary = "Actualizar la imagen completa", description = "Reemplaza todos los datos de la imagen")
+  public EntityModel<Imagen> actualizar(@PathVariable Long id, @Valid @RequestBody Imagen imagen) {
+    return assembler.toModel(service.actualizar(id, imagen));
   }
 
-  /** PATCH /api/imagenes/5 -> cambia solo los campos enviados. */
   @PatchMapping("/{id}")
-  public Imagen modificar(@PathVariable Long id, @RequestBody Imagen datos) {
-    Imagen imagen = buscar(id);
-    if (datos.getUrl() != null) imagen.setUrl(datos.getUrl());
-    if (datos.getDescripcion() != null) imagen.setDescripcion(datos.getDescripcion());
-    validacion.validar(imagen);
-    return repository.save(imagen);
+  @Operation(summary = "Actualizar parte de una imagen", description = "Cambia solo los campos enviados")
+  public EntityModel<Imagen> actualizarParcial(@PathVariable Long id, @RequestBody Imagen imagen) {
+    return assembler.toModel(service.actualizarParcial(id, imagen));
   }
 
-  /** DELETE /api/imagenes/5 -> 204. Si algún evento la usa, responde 409. */
   @DeleteMapping("/{id}")
+  @Operation(summary = "Eliminar una imagen",
+      description = "Responde 204. Si algún evento usa esta imagen, responde 409")
   public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-    repository.delete(buscar(id));
+    service.eliminar(id);
     return ResponseEntity.noContent().build();
-  }
-
-  private Imagen buscar(Long id) {
-    return repository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Imagen " + id + " no existe"));
   }
 }

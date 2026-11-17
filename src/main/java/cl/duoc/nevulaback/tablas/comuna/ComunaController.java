@@ -1,11 +1,14 @@
 package cl.duoc.nevulaback.tablas.comuna;
 
-import cl.duoc.nevulaback.tablas.region.Region;
-import cl.duoc.nevulaback.tablas.region.RegionRepository;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.net.URI;
 import java.util.List;
-import org.springframework.http.HttpStatus;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,91 +20,66 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
-import cl.duoc.nevulaback.config.Validacion;
 
-/**
- * Rutas del recurso "comunas". Todas empiezan con /api/comunas.
- * GET /api/comunas?regionId=7 devuelve solo las comunas de esa región.
- */
 @RestController
 @RequestMapping("/api/comunas")
+@Tag(name = "Comunas", description = "Operaciones relacionadas con las comunas")
 public class ComunaController {
 
-  private final ComunaRepository repository;
-  private final RegionRepository regionRepository;
-  private final Validacion validacion;
+  private final ComunaService service;
+  private final ComunaModelAssembler assembler;
 
-  public ComunaController(ComunaRepository repository, RegionRepository regionRepository, Validacion validacion) {
-    this.repository = repository;
-    this.regionRepository = regionRepository;
-    this.validacion = validacion;
+  public ComunaController(ComunaService service, ComunaModelAssembler assembler) {
+    this.service = service;
+    this.assembler = assembler;
   }
 
-  /** GET /api/comunas, ?nombre=san o ?regionId=7 */
   @GetMapping
-  public List<Comuna> listar(@RequestParam(required = false) String nombre,
-                             @RequestParam(required = false) Long regionId) {
-    if (regionId != null) {
-      return repository.findByRegionId(regionId);
-    }
-    if (nombre != null && !nombre.isBlank()) {
-      return repository.findByNombreContainingIgnoreCase(nombre);
-    }
-    return repository.findAll();
+  @Operation(summary = "Obtener todas las comunas",
+      description = "Lista las comunas. Con ?nombre=san filtra por nombre, con ?regionId=1 por región")
+  public CollectionModel<EntityModel<Comuna>> obtenerTodos(
+      @RequestParam(required = false) String nombre,
+      @RequestParam(required = false) Long regionId) {
+    List<EntityModel<Comuna>> comunas = service.obtenerTodos(nombre, regionId).stream()
+        .map(assembler::toModel)
+        .toList();
+    return CollectionModel.of(comunas,
+        linkTo(methodOn(ComunaController.class).obtenerTodos(null, null)).withSelfRel());
   }
 
-  /** GET /api/comunas/5 -> 200, o 404 si no existe. */
   @GetMapping("/{id}")
-  public Comuna obtener(@PathVariable Long id) {
-    return buscar(id);
+  @Operation(summary = "Obtener una comuna por su ID", description = "Responde 404 si no existe")
+  public EntityModel<Comuna> buscarPorId(@PathVariable Long id) {
+    return assembler.toModel(service.buscarPorId(id));
   }
 
-  /** POST /api/comunas -> 201 Created. La región debe existir (si no, 404). */
   @PostMapping
-  public ResponseEntity<Comuna> crear(@Valid @RequestBody Comuna comuna) {
-    comuna.setId(null);
-    comuna.setRegion(buscarRegion(comuna.getRegion().getId()));
-    Comuna guardada = repository.save(comuna);
-    return ResponseEntity.created(URI.create("/api/comunas/" + guardada.getId())).body(guardada);
+  @Operation(summary = "Agregar una comuna",
+      description = "Crea una comuna y responde 201. La región debe existir (si no, 404)")
+  public ResponseEntity<EntityModel<Comuna>> crear(@Valid @RequestBody Comuna comuna) {
+    Comuna guardada = service.guardar(comuna);
+    return ResponseEntity
+        .created(linkTo(methodOn(ComunaController.class).buscarPorId(guardada.getId())).toUri())
+        .body(assembler.toModel(guardada));
   }
 
-  /** PUT /api/comunas/5 -> reemplaza la comuna COMPLETA. */
   @PutMapping("/{id}")
-  public Comuna actualizar(@PathVariable Long id, @Valid @RequestBody Comuna datos) {
-    Comuna comuna = buscar(id);
-    comuna.setNombre(datos.getNombre());
-    comuna.setRegion(buscarRegion(datos.getRegion().getId()));
-    return repository.save(comuna);
+  @Operation(summary = "Actualizar la comuna completa", description = "Reemplaza todos los datos de la comuna")
+  public EntityModel<Comuna> actualizar(@PathVariable Long id, @Valid @RequestBody Comuna comuna) {
+    return assembler.toModel(service.actualizar(id, comuna));
   }
 
-    /** PATCH /api/comunas/5 -> cambia solo los campos enviados. */
   @PatchMapping("/{id}")
-  public Comuna modificar(@PathVariable Long id, @RequestBody Comuna datos) {
-    Comuna comuna = buscar(id);
-    if (datos.getNombre() != null) comuna.setNombre(datos.getNombre());
-    if (datos.getRegion() != null) comuna.setRegion(buscarRegion(datos.getRegion().getId()));
-    validacion.validar(comuna);
-    return repository.save(comuna);
+  @Operation(summary = "Actualizar parte de una comuna", description = "Cambia solo los campos enviados")
+  public EntityModel<Comuna> actualizarParcial(@PathVariable Long id, @RequestBody Comuna comuna) {
+    return assembler.toModel(service.actualizarParcial(id, comuna));
   }
 
-  /** DELETE /api/comunas/5 -> 204 sin cuerpo. */
   @DeleteMapping("/{id}")
+  @Operation(summary = "Eliminar una comuna",
+      description = "Responde 204. Si tiene locales asociados, responde 409")
   public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-    repository.delete(buscar(id));
+    service.eliminar(id);
     return ResponseEntity.noContent().build();
-  }
-
-  private Comuna buscar(Long id) {
-    return repository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comuna " + id + " no existe"));
-  }
-
-  private Region buscarRegion(Long id) {
-    if (id == null) {
-      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Falta el id de la región");
-    }
-    return regionRepository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Región " + id + " no existe"));
   }
 }

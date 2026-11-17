@@ -13,7 +13,15 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.springframework.hateoas.server.core.Relation;
 
+@Getter
+@Setter
+@NoArgsConstructor
+@Relation(collectionRelation = "comunas", itemRelation = "comuna")
 @JsonPropertyOrder({"id", "nombre", "region"})
 @Entity
 @Table(name = "comunas")
@@ -33,20 +41,8 @@ public class Comuna {
   @JoinColumn(name = "region_id", nullable = false)
   private Region region;
 
-  public Comuna() {
-  }
-
   public Comuna(String nombre, Region region) {
     this.nombre = nombre;
     this.region = region;
   }
-
-  public Long getId() { return id; }
-  public void setId(Long id) { this.id = id; }
-
-  public String getNombre() { return nombre; }
-  public void setNombre(String nombre) { this.nombre = nombre; }
-
-  public Region getRegion() { return region; }
-  public void setRegion(Region region) { this.region = region; }
 }

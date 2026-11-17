@@ -15,10 +15,17 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.springframework.hateoas.server.core.Relation;
 
+@Getter
+@Setter
+@NoArgsConstructor
+@Relation(collectionRelation = "eventos", itemRelation = "evento")
 @JsonPropertyOrder({"id", "fecha", "horaInicio", "horaFin", "local", "estado", "imagen", "linkEntradas", "genero"})
 @Entity
 @Table(name = "eventos")
@@ -49,7 +56,7 @@ public class Evento {
     @ManyToOne
     @JoinColumn(name = "estado_id", nullable = false)
     private Estado estado;
-    
+
     @NotNull(message = "La imagen es obligatoria")
     @ManyToOne
     @JoinColumn(name = "imagen_id", nullable = false)
@@ -66,9 +73,6 @@ public class Evento {
     @Column(length = 50)
     private String genero;
 
-    public Evento() {
-    }
-
     public Evento(LocalDate fecha, LocalTime horaInicio, LocalTime horaFin,
                   Local local, Estado estado, Imagen imagen, String linkEntradas, String genero) {
         this.fecha = fecha;
@@ -80,31 +84,4 @@ public class Evento {
         this.linkEntradas = linkEntradas;
         this.genero = genero;
     }
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public LocalDate getFecha() { return fecha; }
-    public void setFecha(LocalDate fecha) { this.fecha = fecha; }
-
-    public LocalTime getHoraInicio() { return horaInicio; }
-    public void setHoraInicio(LocalTime horaInicio) { this.horaInicio = horaInicio; }
-
-    public LocalTime getHoraFin() { return horaFin; }
-    public void setHoraFin(LocalTime horaFin) { this.horaFin = horaFin; }
-
-    public Local getLocal() { return local; }
-    public void setLocal(Local local) { this.local = local; }
-
-    public Estado getEstado() { return estado; }
-    public void setEstado(Estado estado) { this.estado = estado; }
-
-    public Imagen getImagen() { return imagen; }
-    public void setImagen(Imagen imagen) { this.imagen = imagen; }
-
-    public String getLinkEntradas() { return linkEntradas; }
-    public void setLinkEntradas(String linkEntradas) { this.linkEntradas = linkEntradas; }
-
-    public String getGenero() { return genero; }
-    public void setGenero(String genero) { this.genero = genero; }
 }

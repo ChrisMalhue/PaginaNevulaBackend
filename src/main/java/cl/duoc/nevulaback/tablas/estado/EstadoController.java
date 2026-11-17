@@ -1,10 +1,14 @@
 package cl.duoc.nevulaback.tablas.estado;
 
-import cl.duoc.nevulaback.config.Validacion;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.net.URI;
 import java.util.List;
-import org.springframework.http.HttpStatus;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,65 +20,64 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
-/** Rutas del recurso "estados". Todas empiezan con /api/estados. */
 @RestController
 @RequestMapping("/api/estados")
+@Tag(name = "Estados", description = "Estados de un evento: Programado, Hoy, Finalizado y Cancelado")
 public class EstadoController {
 
-  private final EstadoRepository repository;
-  private final Validacion validacion;
+  private final EstadoService service;
+  private final EstadoModelAssembler assembler;
 
-  public EstadoController(EstadoRepository repository, Validacion validacion) {
-    this.repository = repository;
-    this.validacion = validacion;
+  public EstadoController(EstadoService service, EstadoModelAssembler assembler) {
+    this.service = service;
+    this.assembler = assembler;
   }
 
-  /** GET /api/estados o GET /api/estados?nombre=prog */
   @GetMapping
-  public List<Estado> listar(@RequestParam(required = false) String nombre) {
-    if (nombre == null || nombre.isBlank()) {
-      return repository.findAll();
-    }
-    return repository.findByNombreContainingIgnoreCase(nombre);
+  @Operation(summary = "Obtener todos los estados",
+      description = "Lista los estados. Con ?nombre=prog filtra por nombre")
+  public CollectionModel<EntityModel<Estado>> obtenerTodos(@RequestParam(required = false) String nombre) {
+    List<EntityModel<Estado>> estados = service.obtenerTodos(nombre).stream()
+        .map(assembler::toModel)
+        .toList();
+    return CollectionModel.of(estados,
+        linkTo(methodOn(EstadoController.class).obtenerTodos(null)).withSelfRel());
   }
 
   @GetMapping("/{id}")
-  public Estado obtener(@PathVariable Long id) {
-    return buscar(id);
+  @Operation(summary = "Obtener un estado por su ID", description = "Responde 404 si no existe")
+  public EntityModel<Estado> buscarPorId(@PathVariable Long id) {
+    return assembler.toModel(service.buscarPorId(id));
   }
 
   @PostMapping
-  public ResponseEntity<Estado> crear(@Valid @RequestBody Estado estado) {
-    estado.setId(null);
-    Estado guardado = repository.save(estado);
-    return ResponseEntity.created(URI.create("/api/estados/" + guardado.getId())).body(guardado);
+  @Operation(summary = "Agregar un estado",
+      description = "Crea un estado y responde 201. Si el nombre ya existe, responde 409")
+  public ResponseEntity<EntityModel<Estado>> crear(@Valid @RequestBody Estado estado) {
+    Estado guardado = service.guardar(estado);
+    return ResponseEntity
+        .created(linkTo(methodOn(EstadoController.class).buscarPorId(guardado.getId())).toUri())
+        .body(assembler.toModel(guardado));
   }
 
   @PutMapping("/{id}")
-  public Estado actualizar(@PathVariable Long id, @Valid @RequestBody Estado datos) {
-    Estado estado = buscar(id);
-    estado.setNombre(datos.getNombre());
-    return repository.save(estado);
+  @Operation(summary = "Actualizar el estado completo", description = "Reemplaza todos los datos del estado")
+  public EntityModel<Estado> actualizar(@PathVariable Long id, @Valid @RequestBody Estado estado) {
+    return assembler.toModel(service.actualizar(id, estado));
   }
 
   @PatchMapping("/{id}")
-  public Estado modificar(@PathVariable Long id, @RequestBody Estado datos) {
-    Estado estado = buscar(id);
-    if (datos.getNombre() != null) estado.setNombre(datos.getNombre());
-    validacion.validar(estado);
-    return repository.save(estado);
+  @Operation(summary = "Actualizar parte de un estado", description = "Cambia solo los campos enviados")
+  public EntityModel<Estado> actualizarParcial(@PathVariable Long id, @RequestBody Estado estado) {
+    return assembler.toModel(service.actualizarParcial(id, estado));
   }
 
   @DeleteMapping("/{id}")
+  @Operation(summary = "Eliminar un estado",
+      description = "Responde 204. Si algún evento usa este estado, responde 409")
   public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-    repository.delete(buscar(id));
+    service.eliminar(id);
     return ResponseEntity.noContent().build();
-  }
-
-  private Estado buscar(Long id) {
-    return repository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Estado " + id + " no existe"));
   }
 }

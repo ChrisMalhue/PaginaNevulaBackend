@@ -1,17 +1,14 @@
 package cl.duoc.nevulaback.tablas.evento;
 
-import cl.duoc.nevulaback.config.Validacion;
-import cl.duoc.nevulaback.tablas.estado.Estado;
-import cl.duoc.nevulaback.tablas.estado.EstadoRepository;
-import cl.duoc.nevulaback.tablas.imagen.Imagen;
-import cl.duoc.nevulaback.tablas.imagen.ImagenRepository;
-import cl.duoc.nevulaback.tablas.local.Local;
-import cl.duoc.nevulaback.tablas.local.LocalRepository;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.net.URI;
-import java.time.LocalDate;
 import java.util.List;
-import org.springframework.http.HttpStatus;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,155 +20,69 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
-/**
- * Rutas del recurso "eventos". Todas empiezan con /api/eventos.
- * Filtros: ?estadoId=1 o ?localId=2. Sin filtro, del más reciente al más antiguo.
- */
 @RestController
 @RequestMapping("/api/eventos")
+@Tag(name = "Eventos", description = "Operaciones relacionadas con los eventos")
 public class EventoController {
 
-    private final EventoRepository repository;
-    private final LocalRepository localRepository;
-    private final EstadoRepository estadoRepository;
-    private final ImagenRepository imagenRepository;
-    private final Validacion validacion;
+    private final EventoService service;
+    private final EventoModelAssembler assembler;
 
-    public EventoController(EventoRepository repository, LocalRepository localRepository,
-                            EstadoRepository estadoRepository, ImagenRepository imagenRepository,
-                            Validacion validacion) {
-        this.repository = repository;
-        this.localRepository = localRepository;
-        this.estadoRepository = estadoRepository;
-        this.imagenRepository = imagenRepository;
-        this.validacion = validacion;
+    public EventoController(EventoService service, EventoModelAssembler assembler) {
+        this.service = service;
+        this.assembler = assembler;
     }
 
-    /** GET /api/eventos, ?estadoId=1 o ?localId=2 */
     @GetMapping
-    public List<Evento> listar(@RequestParam(required = false) Long estadoId,
-                                @RequestParam(required = false) Long localId) {
-        if (estadoId != null) {
-        return repository.findByEstadoIdOrderByFechaDesc(estadoId);
-        }
-        if (localId != null) {
-        return repository.findByLocalIdOrderByFechaDesc(localId);
-        }
-        return repository.findAllByOrderByFechaDesc();
+    @Operation(summary = "Obtener todos los eventos",
+        description = "Lista los eventos, del más reciente al más antiguo. "
+            + "Con ?estadoId=1 filtra por estado, con ?localId=2 por local")
+    public CollectionModel<EntityModel<Evento>> obtenerTodos(
+        @RequestParam(required = false) Long estadoId,
+        @RequestParam(required = false) Long localId) {
+        List<EntityModel<Evento>> eventos = service.obtenerTodos(estadoId, localId).stream()
+            .map(assembler::toModel)
+            .toList();
+        return CollectionModel.of(eventos,
+            linkTo(methodOn(EventoController.class).obtenerTodos(null, null)).withSelfRel());
     }
 
-    /** GET /api/eventos/5 -> 200, o 404 si no existe. */
     @GetMapping("/{id}")
-    public Evento obtener(@PathVariable Long id) {
-        return buscar(id);
+    @Operation(summary = "Obtener un evento por su ID", description = "Responde 404 si no existe")
+    public EntityModel<Evento> buscarPorId(@PathVariable Long id) {
+        return assembler.toModel(service.buscarPorId(id));
     }
 
-    /** POST /api/eventos -> 201. La fecha no puede ser anterior a hoy. */
     @PostMapping
-    public ResponseEntity<Evento> crear(@Valid @RequestBody Evento evento) {
-        evento.setId(null);
-        evento.setLocal(buscarLocal(evento.getLocal().getId()));
-        evento.setEstado(buscarEstado(evento.getEstado().getId()));
-        evento.setImagen(buscarImagen(evento.getImagen().getId()));
-        if (esProgramado(evento.getEstado())) {
-        validacion.fechaNoPasada(evento.getFecha());
-        }
-        Evento guardado = repository.save(evento);
-        return ResponseEntity.created(URI.create("/api/eventos/" + guardado.getId())).body(guardado);
+    @Operation(summary = "Agregar un evento",
+        description = "Crea un evento y responde 201. El local, el estado y la imagen deben existir (si no, 404). "
+            + "Si el estado es Programado, la fecha no puede ser anterior a hoy (400)")
+    public ResponseEntity<EntityModel<Evento>> crear(@Valid @RequestBody Evento evento) {
+        Evento guardado = service.guardar(evento);
+        return ResponseEntity
+            .created(linkTo(methodOn(EventoController.class).buscarPorId(guardado.getId())).toUri())
+            .body(assembler.toModel(guardado));
     }
 
-    /** PUT /api/eventos/5 -> reemplaza el evento COMPLETO. Solo revisa la fecha si cambió. */
     @PutMapping("/{id}")
-    public Evento actualizar(@PathVariable Long id, @Valid @RequestBody Evento datos) {
-        Evento evento = buscar(id);
-        Estado estado = buscarEstado(datos.getEstado().getId());
-
-        boolean cambioFecha = !datos.getFecha().equals(evento.getFecha());
-        boolean cambioEstado = !estado.getId().equals(evento.getEstado().getId());
-        if (esProgramado(estado) && (cambioFecha || cambioEstado)) {
-        validacion.fechaNoPasada(datos.getFecha());
-        }
-
-        evento.setFecha(datos.getFecha());
-        evento.setHoraInicio(datos.getHoraInicio());
-        evento.setHoraFin(datos.getHoraFin());
-        evento.setLocal(buscarLocal(datos.getLocal().getId()));
-        evento.setEstado(estado);
-        evento.setImagen(buscarImagen(datos.getImagen().getId()));
-        evento.setLinkEntradas(datos.getLinkEntradas());
-        evento.setGenero(datos.getGenero());
-        return repository.save(evento);
+    @Operation(summary = "Actualizar el evento completo", description = "Reemplaza todos los datos del evento")
+    public EntityModel<Evento> actualizar(@PathVariable Long id, @Valid @RequestBody Evento evento) {
+        return assembler.toModel(service.actualizar(id, evento));
     }
 
-    /** PATCH /api/eventos/5 -> cambia solo lo enviado (por ejemplo, el estado). */
     @PatchMapping("/{id}")
-    public Evento modificar(@PathVariable Long id, @RequestBody Evento datos) {
-        Evento evento = buscar(id);
-
-        LocalDate fechaNueva = datos.getFecha() != null ? datos.getFecha() : evento.getFecha();
-        Estado estadoNuevo = datos.getEstado() != null
-            ? buscarEstado(datos.getEstado().getId())
-            : evento.getEstado();
-
-        boolean cambioFecha = !fechaNueva.equals(evento.getFecha());
-        boolean cambioEstado = !estadoNuevo.getId().equals(evento.getEstado().getId());
-        if (esProgramado(estadoNuevo) && (cambioFecha || cambioEstado)) {
-        validacion.fechaNoPasada(fechaNueva);
-        }
-
-        evento.setFecha(fechaNueva);
-        evento.setEstado(estadoNuevo);
-        if (datos.getHoraInicio() != null) evento.setHoraInicio(datos.getHoraInicio());
-        if (datos.getHoraFin() != null) evento.setHoraFin(datos.getHoraFin());
-        if (datos.getLocal() != null) evento.setLocal(buscarLocal(datos.getLocal().getId()));
-        if (datos.getImagen() != null) evento.setImagen(buscarImagen(datos.getImagen().getId()));
-        if (datos.getLinkEntradas() != null) evento.setLinkEntradas(datos.getLinkEntradas());
-        if (datos.getGenero() != null) evento.setGenero(datos.getGenero());
-        validacion.validar(evento);
-        return repository.save(evento);
+    @Operation(summary = "Actualizar parte de un evento",
+        description = "Cambia solo los campos enviados (por ejemplo, el estado)")
+    public EntityModel<Evento> actualizarParcial(@PathVariable Long id, @RequestBody Evento evento) {
+        return assembler.toModel(service.actualizarParcial(id, evento));
     }
 
-    /** DELETE /api/eventos/5 -> 204. Si tiene DJs asignados, responde 409. */
     @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar un evento",
+        description = "Responde 204. Si tiene DJs o recordatorios asignados, responde 409")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-        repository.delete(buscar(id));
+        service.eliminar(id);
         return ResponseEntity.noContent().build();
-    }
-
-    // Metodos usados en el controller
-
-    private boolean esProgramado(Estado estado) {
-        return "Programado".equalsIgnoreCase(estado.getNombre());
-    }
-
-    private Evento buscar(Long id) {
-        return repository.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento " + id + " no existe"));
-    }
-
-    private Local buscarLocal(Long id) {
-        if (id == null) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Falta el id del local");
-        }
-        return localRepository.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Local " + id + " no existe"));
-    }
-
-    private Estado buscarEstado(Long id) {
-        if (id == null) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Falta el id del estado");
-        }
-        return estadoRepository.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Estado " + id + " no existe"));
-    }
-
-    private Imagen buscarImagen(Long id) {
-        if (id == null) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Falta el id de la imagen");
-        }
-        return imagenRepository.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Imagen " + id + " no existe"));
     }
 }

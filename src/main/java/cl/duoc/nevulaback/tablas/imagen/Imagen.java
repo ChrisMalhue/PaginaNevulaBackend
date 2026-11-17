@@ -10,7 +10,15 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.springframework.hateoas.server.core.Relation;
 
+@Getter
+@Setter
+@NoArgsConstructor
+@Relation(collectionRelation = "imagenes", itemRelation = "imagen")
 @JsonPropertyOrder({"id", "url", "descripcion"})
 @Entity
 @Table(name = "imagenes")
@@ -32,20 +40,8 @@ public class Imagen {
   @Column(length = 200)
   private String descripcion;
 
-  public Imagen() {
-  }
-
   public Imagen(String url, String descripcion) {
     this.url = url;
     this.descripcion = descripcion;
   }
-
-  public Long getId() { return id; }
-  public void setId(Long id) { this.id = id; }
-
-  public String getUrl() { return url; }
-  public void setUrl(String url) { this.url = url; }
-
-  public String getDescripcion() { return descripcion; }
-  public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
 }

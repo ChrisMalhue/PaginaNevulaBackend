@@ -14,7 +14,15 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.springframework.hateoas.server.core.Relation;
 
+@Getter
+@Setter
+@NoArgsConstructor
+@Relation(collectionRelation = "locales", itemRelation = "local")
 @JsonPropertyOrder({"id", "nombre", "direccion", "mapaUrl", "comuna"})
 @Entity
 @Table(name = "locales")
@@ -45,28 +53,10 @@ public class Local {
     @JoinColumn(name = "comuna_id", nullable = false)
     private Comuna comuna;
 
-    public Local() {
-    }
-
     public Local(String nombre, String direccion, String mapaUrl, Comuna comuna) {
         this.nombre = nombre;
         this.direccion = direccion;
         this.mapaUrl = mapaUrl;
         this.comuna = comuna;
     }
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getNombre() { return nombre; }
-    public void setNombre(String nombre) { this.nombre = nombre; }
-
-    public String getDireccion() { return direccion; }
-    public void setDireccion(String direccion) { this.direccion = direccion; }
-
-    public String getMapaUrl() { return mapaUrl; }
-    public void setMapaUrl(String mapaUrl) { this.mapaUrl = mapaUrl; }
-
-    public Comuna getComuna() { return comuna; }
-    public void setComuna(Comuna comuna) { this.comuna = comuna; }
 }

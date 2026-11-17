@@ -1,11 +1,14 @@
 package cl.duoc.nevulaback.tablas.local;
 
-import cl.duoc.nevulaback.tablas.comuna.Comuna;
-import cl.duoc.nevulaback.tablas.comuna.ComunaRepository;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.net.URI;
 import java.util.List;
-import org.springframework.http.HttpStatus;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,91 +20,67 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
-import cl.duoc.nevulaback.config.Validacion;
 
-/** Rutas del recurso "locales". Todas empiezan con /api/locales. */
 @RestController
 @RequestMapping("/api/locales")
+@Tag(name = "Locales", description = "Operaciones relacionadas con los locales donde se hacen los eventos")
 public class LocalController {
 
-    private final LocalRepository repository;
-    private final ComunaRepository comunaRepository;
-    private final Validacion validacion;
+    private final LocalService service;
+    private final LocalModelAssembler assembler;
 
-    public LocalController(LocalRepository repository, ComunaRepository comunaRepository, Validacion validacion) {
-        this.repository = repository;
-        this.comunaRepository = comunaRepository;
-        this.validacion = validacion;
+    public LocalController(LocalService service, LocalModelAssembler assembler) {
+        this.service = service;
+        this.assembler = assembler;
     }
 
-    /** GET /api/locales, ?nombre=secret o ?comunaId=3 */
     @GetMapping
-    public List<Local> listar(@RequestParam(required = false) String nombre,
-                                @RequestParam(required = false) Long comunaId) {
-        if (comunaId != null) {
-        return repository.findByComunaId(comunaId);
-        }
-        if (nombre != null && !nombre.isBlank()) {
-        return repository.findByNombreContainingIgnoreCase(nombre);
-        }
-        return repository.findAll();
+    @Operation(summary = "Obtener todos los locales",
+        description = "Lista los locales. Con ?nombre=secret filtra por nombre, con ?comunaId=3 por comuna")
+    public CollectionModel<EntityModel<Local>> obtenerTodos(
+        @RequestParam(required = false) String nombre,
+        @RequestParam(required = false) Long comunaId) {
+        List<EntityModel<Local>> locales = service.obtenerTodos(nombre, comunaId).stream()
+            .map(assembler::toModel)
+            .toList();
+        return CollectionModel.of(locales,
+            linkTo(methodOn(LocalController.class).obtenerTodos(null, null)).withSelfRel());
     }
 
     @GetMapping("/{id}")
-    public Local obtener(@PathVariable Long id) {
-        return buscar(id);
+    @Operation(summary = "Obtener un local por su ID", description = "Responde 404 si no existe")
+    public EntityModel<Local> buscarPorId(@PathVariable Long id) {
+        return assembler.toModel(service.buscarPorId(id));
     }
 
-    /** POST /api/locales -> 201 Created. La comuna debe existir (si no, 404). */
     @PostMapping
-    public ResponseEntity<Local> crear(@Valid @RequestBody Local local) {
-        local.setId(null);
-        local.setComuna(buscarComuna(local.getComuna().getId()));
-        Local guardado = repository.save(local);
-        return ResponseEntity.created(URI.create("/api/locales/" + guardado.getId())).body(guardado);
+    @Operation(summary = "Agregar un local",
+        description = "Crea un local y responde 201. La comuna debe existir (si no, 404). "
+            + "La dirección y el link del mapa son opcionales (los locales secretos no los llevan)")
+    public ResponseEntity<EntityModel<Local>> crear(@Valid @RequestBody Local local) {
+        Local guardado = service.guardar(local);
+        return ResponseEntity
+            .created(linkTo(methodOn(LocalController.class).buscarPorId(guardado.getId())).toUri())
+            .body(assembler.toModel(guardado));
     }
 
-    /** PUT /api/locales/5 -> reemplaza el local COMPLETO. */
     @PutMapping("/{id}")
-    public Local actualizar(@PathVariable Long id, @Valid @RequestBody Local datos) {
-        Local local = buscar(id);
-        local.setNombre(datos.getNombre());
-        local.setDireccion(datos.getDireccion());
-        local.setMapaUrl(datos.getMapaUrl());
-        local.setComuna(buscarComuna(datos.getComuna().getId()));
-        return repository.save(local);
+    @Operation(summary = "Actualizar el local completo", description = "Reemplaza todos los datos del local")
+    public EntityModel<Local> actualizar(@PathVariable Long id, @Valid @RequestBody Local local) {
+        return assembler.toModel(service.actualizar(id, local));
     }
 
-    /** PATCH /api/locales/5 -> cambia solo los campos enviados. */
     @PatchMapping("/{id}")
-    public Local modificar(@PathVariable Long id, @RequestBody Local datos) {
-        Local local = buscar(id);
-        if (datos.getNombre() != null) local.setNombre(datos.getNombre());
-        if (datos.getDireccion() != null) local.setDireccion(datos.getDireccion());
-        if (datos.getMapaUrl() != null) local.setMapaUrl(datos.getMapaUrl());
-        if (datos.getComuna() != null) local.setComuna(buscarComuna(datos.getComuna().getId()));
-        validacion.validar(local);
-        return repository.save(local);
+    @Operation(summary = "Actualizar parte de un local", description = "Cambia solo los campos enviados")
+    public EntityModel<Local> actualizarParcial(@PathVariable Long id, @RequestBody Local local) {
+        return assembler.toModel(service.actualizarParcial(id, local));
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar un local",
+        description = "Responde 204. Si tiene eventos asociados, responde 409")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-        repository.delete(buscar(id));
+        service.eliminar(id);
         return ResponseEntity.noContent().build();
-    }
-
-    // Duda
-    private Local buscar(Long id) {
-        return repository.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Local " + id + " no existe"));
-    }
-
-    private Comuna buscarComuna(Long id) {
-        if (id == null) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Falta el id de la comuna");
-        }
-        return comunaRepository.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comuna " + id + " no existe"));
     }
 }
