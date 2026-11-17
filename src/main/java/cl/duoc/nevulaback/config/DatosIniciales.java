@@ -1,17 +1,17 @@
 package cl.duoc.nevulaback.config;
 
-import cl.duoc.nevulaback.tablas.comuna.Comuna;
-import cl.duoc.nevulaback.tablas.comuna.ComunaRepository;
-import cl.duoc.nevulaback.tablas.estado.Estado;
-import cl.duoc.nevulaback.tablas.estado.EstadoRepository;
-import cl.duoc.nevulaback.tablas.evento.Evento;
-import cl.duoc.nevulaback.tablas.evento.EventoRepository;
-import cl.duoc.nevulaback.tablas.imagen.Imagen;
-import cl.duoc.nevulaback.tablas.imagen.ImagenRepository;
-import cl.duoc.nevulaback.tablas.local.Local;
-import cl.duoc.nevulaback.tablas.local.LocalRepository;
-import cl.duoc.nevulaback.tablas.region.Region;
-import cl.duoc.nevulaback.tablas.region.RegionRepository;
+import cl.duoc.nevulaback.tablas.model.Comuna;
+import cl.duoc.nevulaback.tablas.model.Estado;
+import cl.duoc.nevulaback.tablas.model.Evento;
+import cl.duoc.nevulaback.tablas.model.Imagen;
+import cl.duoc.nevulaback.tablas.model.Local;
+import cl.duoc.nevulaback.tablas.model.Region;
+import cl.duoc.nevulaback.tablas.repository.ComunaRepository;
+import cl.duoc.nevulaback.tablas.repository.EstadoRepository;
+import cl.duoc.nevulaback.tablas.repository.EventoRepository;
+import cl.duoc.nevulaback.tablas.repository.ImagenRepository;
+import cl.duoc.nevulaback.tablas.repository.LocalRepository;
+import cl.duoc.nevulaback.tablas.repository.RegionRepository;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
