@@ -43,14 +43,14 @@ public class DjService {
     public Dj guardar(Dj dj) {
         log.info("Registrando nuevo dj");
         dj.setId(null);
-        return repository.save(dj);
+        return repository.saveAndFlush(dj);
     }
 
     public Dj actualizar(Long id, Dj datos) {
         log.info("Actualizando el dj con ID: {}", id);
         Dj dj = buscarPorId(id);
         dj.setNombre(datos.getNombre());
-        return repository.save(dj);
+        return repository.saveAndFlush(dj);
     }
 
     public Dj actualizarParcial(Long id, Dj datos) {
@@ -62,7 +62,7 @@ public class DjService {
         }
 
         validacion.validar(dj);
-        return repository.save(dj);
+        return repository.saveAndFlush(dj);
     }
 
     public void eliminar(Long id) {
