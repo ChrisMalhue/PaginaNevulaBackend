@@ -29,7 +29,7 @@ public class Dj {
 
     @NotBlank(message = "El nombre es obligatorio")
     @Size(max = 100, message = "El nombre puede tener como máximo 100 caracteres")
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false, length = 100, unique = true)
     private String nombre;
 
     public Dj(String nombre) {

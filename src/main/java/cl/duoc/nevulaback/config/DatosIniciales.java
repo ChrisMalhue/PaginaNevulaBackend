@@ -8,6 +8,8 @@ import cl.duoc.nevulaback.tablas.model.EventoDj;
 import cl.duoc.nevulaback.tablas.model.Imagen;
 import cl.duoc.nevulaback.tablas.model.Local;
 import cl.duoc.nevulaback.tablas.model.Region;
+import cl.duoc.nevulaback.tablas.model.Rol;
+import cl.duoc.nevulaback.tablas.model.Usuario;
 import cl.duoc.nevulaback.tablas.repository.ComunaRepository;
 import cl.duoc.nevulaback.tablas.repository.DjRepository;
 import cl.duoc.nevulaback.tablas.repository.EstadoRepository;
@@ -16,14 +18,18 @@ import cl.duoc.nevulaback.tablas.repository.EventoRepository;
 import cl.duoc.nevulaback.tablas.repository.ImagenRepository;
 import cl.duoc.nevulaback.tablas.repository.LocalRepository;
 import cl.duoc.nevulaback.tablas.repository.RegionRepository;
+import cl.duoc.nevulaback.tablas.repository.RolRepository;
+import cl.duoc.nevulaback.tablas.repository.UsuarioRepository;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Component
 public class DatosIniciales implements CommandLineRunner {
+
     private final RegionRepository regionRepository;
     private final ComunaRepository comunaRepository;
     private final LocalRepository localRepository;
@@ -32,6 +38,9 @@ public class DatosIniciales implements CommandLineRunner {
     private final EventoRepository eventoRepository;
     private final DjRepository djRepository;
     private final EventoDjRepository eventoDjRepository;
+    private final RolRepository rolRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
     
     public DatosIniciales(
         RegionRepository regionRepository,
@@ -41,7 +50,10 @@ public class DatosIniciales implements CommandLineRunner {
         ImagenRepository imagenRepository,
         EventoRepository eventoRepository,
         DjRepository djRepository,
-        EventoDjRepository eventoDjRepository
+        EventoDjRepository eventoDjRepository,
+        RolRepository rolRepository,
+        UsuarioRepository usuarioRepository,
+        PasswordEncoder passwordEncoder
     ) {
         this.regionRepository = regionRepository;
         this.comunaRepository = comunaRepository;
@@ -51,6 +63,9 @@ public class DatosIniciales implements CommandLineRunner {
         this.eventoRepository = eventoRepository;
         this.djRepository = djRepository;
         this.eventoDjRepository = eventoDjRepository;
+        this.rolRepository = rolRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -83,7 +98,12 @@ public class DatosIniciales implements CommandLineRunner {
     Estado finalizado = estadoRepository.save(new Estado("Finalizado"));
     estadoRepository.save(new Estado("Cancelado"));
 
-    // 4) Imágenes (flyers en ImgBB, de evento1 a evento6)
+    // 4) Roles
+
+    Rol usuario = rolRepository.save(new Rol("USUARIO"));
+    Rol admin = rolRepository.save(new Rol("ADMIN"));
+
+    // 5) Imágenes (flyers en ImgBB, de evento1 a evento6)
     Imagen img1 = imagenRepository.save(new Imagen(
     "https://i.ibb.co/vCGX0hCd/evento1.webp", "Flyer Azotea Los Dominicos"));
     Imagen img2 = imagenRepository.save(new Imagen(
@@ -97,7 +117,7 @@ public class DatosIniciales implements CommandLineRunner {
     Imagen img6 = imagenRepository.save(new Imagen(
     "https://i.ibb.co/9m11bs4R/evento6.webp", "Flyer Rock x Palestina"));
 
-    // 5) Locales. Los Secret Spot son secretos: no llevan dirección ni link de mapa.
+    // 6) Locales. Los Secret Spot son secretos: no llevan dirección ni link de mapa.
     Local azotea = localRepository.save(new Local("Azotea Los Dominicos", null, null, lasCondes));
     Local secretProvidencia = localRepository.save(new Local("Secret Spot Providencia", null, null, providencia));
     Local salaMistral = localRepository.save(new Local("Sala Mistral", null, null, santiago));
@@ -105,7 +125,7 @@ public class DatosIniciales implements CommandLineRunner {
     Local secretNunoa = localRepository.save(new Local("Secret Spot Ñuñoa", null, null, nunoa));
     Local casaFech = localRepository.save(new Local("Casa FECH", null, null, santiago));
 
-    // 6) Eventos: fecha, hora de inicio, hora de fin, local, estado, imagen, linkEntradas, genero
+    // 7) Eventos: fecha, hora de inicio, hora de fin, local, estado, imagen, linkEntradas, genero
     Evento evento1 = eventoRepository.save(new Evento(
     LocalDate.of(2025, 6, 21), LocalTime.of(18, 0), LocalTime.of(2, 0),
     azotea, finalizado, img1, null, null));
@@ -125,7 +145,7 @@ public class DatosIniciales implements CommandLineRunner {
     LocalDate.of(2026, 9, 12), LocalTime.of(15, 0), LocalTime.of(21, 0),
     casaFech, finalizado, img6, null, null));
 
-    // 7) Djs (ids 1 a 20 en este orden)
+    // 8) Djs (ids 1 a 20 en este orden)
     Dj ruilove = djRepository.save(new Dj("Ruilove"));
     Dj sonDeBeise = djRepository.save(new Dj("Son de Beise"));
     Dj derekSolari = djRepository.save(new Dj("Derek Solari"));
@@ -147,7 +167,7 @@ public class DatosIniciales implements CommandLineRunner {
     Dj kelly = djRepository.save(new Dj("Kelly"));
     Dj alejandroVivanco = djRepository.save(new Dj("Alejandro Vivanco"));
 
-    // 8) Line-ups: evento, dj, orden (el orden de las etiquetas en la página)
+    // 9) Line-ups: evento, dj, orden (el orden de las etiquetas en la página)
     eventoDjRepository.saveAll(List.of(
     // Evento 1: Azotea Los Dominicos
     new EventoDj(evento1, ruilove, 1),
@@ -199,5 +219,12 @@ public class DatosIniciales implements CommandLineRunner {
     new EventoDj(evento6, derekSolari, 2),
     new EventoDj(evento6, ghost, 3)
     ));
+
+    // 10) Usuarios de prueba (solo para desarrollo)
+    usuarioRepository.saveAll(List.of(
+      new Usuario("admin", "admin@nevula.cl", passwordEncoder.encode("Admin1234"), admin),
+      new Usuario("usuario", "usuario@nevula.cl", passwordEncoder.encode("Usuario1234"), usuario)
+    ));
     }
+
 }
