@@ -56,11 +56,9 @@ public class Cotizacion {
     @Column(nullable = false, updatable = false)
     private LocalDateTime fechaCreacion;
 
-    @NotNull(message = "El usuario es obligatorio")
     @ManyToOne
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
-
     public Cotizacion(String nombre, String telefono, LocalDate fechaEvento,
         String descripcion, Usuario usuario) {
         this.nombre = nombre;

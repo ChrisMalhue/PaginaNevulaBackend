@@ -1,6 +1,8 @@
 package cl.duoc.nevulaback.tablas.service;
 
+import cl.duoc.nevulaback.config.UsuarioAutenticadoService;
 import cl.duoc.nevulaback.tablas.model.Recordatorio;
+import cl.duoc.nevulaback.tablas.model.Usuario;
 import cl.duoc.nevulaback.tablas.repository.RecordatorioRepository;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -15,18 +17,25 @@ import org.springframework.web.server.ResponseStatusException;
 public class RecordatorioService {
 
     private final RecordatorioRepository repository;
-    private final UsuarioService usuarioService;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
 
-    public RecordatorioService(RecordatorioRepository repository, UsuarioService usuarioService) {
+    public RecordatorioService(
+            RecordatorioRepository repository,
+            UsuarioAutenticadoService usuarioAutenticadoService) {
         this.repository = repository;
-        this.usuarioService = usuarioService;
+        this.usuarioAutenticadoService = usuarioAutenticadoService;
     }
 
     public List<Recordatorio> obtenerTodos(Long usuarioId) {
-        log.info("Obteniendo recordatorios (usuarioId: {})", usuarioId);
+        Usuario actual = usuarioAutenticadoService.obtenerUsuarioActual();
+        log.info("Obteniendo recordatorios (solicitante: {}, filtro usuarioId: {})", actual.getId(), usuarioId);
+
+        if (!usuarioAutenticadoService.esAdmin(actual)) {
+            return repository.findByUsuarioId(actual.getId());
+        }
 
         if (usuarioId != null) {
-        return repository.findByUsuarioId(usuarioId);
+            return repository.findByUsuarioId(usuarioId);
         }
 
         return repository.findAll();
@@ -34,20 +43,19 @@ public class RecordatorioService {
 
     public Recordatorio buscarPorId(Long id) {
         log.info("Buscando recordatorio por ID: {}", id);
-        return repository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(
-            HttpStatus.NOT_FOUND, "Recordatorio " + id + " no existe"));
+        Recordatorio recordatorio = repository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "Recordatorio " + id + " no existe"));
+
+        usuarioAutenticadoService.validarPropietarioOAdmin(recordatorio.getUsuario());
+        return recordatorio;
     }
 
-    public Recordatorio guardar(Recordatorio datos) {
-        log.info("Registrando nuevo recordatorio");
+    public Recordatorio guardar() {
+        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioActual();
+        log.info("Registrando nuevo recordatorio para usuario ID: {}", usuario.getId());
 
-        if (datos.getUsuario() == null || datos.getUsuario().getId() == null) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debes indicar el id del usuario");
-        }
-
-        // Se crea uno nuevo para que id y fechaCreacion no puedan venir desde el cliente.
-        Recordatorio recordatorio = new Recordatorio(usuarioService.buscarPorId(datos.getUsuario().getId()));
+        Recordatorio recordatorio = new Recordatorio(usuario);
         return repository.saveAndFlush(recordatorio);
     }
 

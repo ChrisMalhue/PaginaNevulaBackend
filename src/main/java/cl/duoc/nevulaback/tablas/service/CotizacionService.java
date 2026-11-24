@@ -1,5 +1,6 @@
 package cl.duoc.nevulaback.tablas.service;
 
+import cl.duoc.nevulaback.config.UsuarioAutenticadoService;
 import cl.duoc.nevulaback.config.Validacion;
 import cl.duoc.nevulaback.tablas.model.Cotizacion;
 import cl.duoc.nevulaback.tablas.model.Usuario;
@@ -19,21 +20,29 @@ public class CotizacionService {
     private static final String ROL_COTIZANTE = "USUARIO";
 
     private final CotizacionRepository repository;
-    private final UsuarioService usuarioService;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
     private final Validacion validacion;
 
-    public CotizacionService(CotizacionRepository repository, UsuarioService usuarioService,
-        Validacion validacion) {
+    public CotizacionService(
+            CotizacionRepository repository,
+            UsuarioAutenticadoService usuarioAutenticadoService,
+            Validacion validacion) {
         this.repository = repository;
-        this.usuarioService = usuarioService;
+        this.usuarioAutenticadoService = usuarioAutenticadoService;
         this.validacion = validacion;
     }
 
     public List<Cotizacion> obtenerTodos(Long usuarioId) {
-        log.info("Obteniendo cotizaciones (usuarioId: {})", usuarioId);
+        Usuario actual = usuarioAutenticadoService.obtenerUsuarioActual();
+        log.info("Obteniendo cotizaciones (solicitante: {}, filtro usuarioId: {})", actual.getId(), usuarioId);
+
+        // Si no es ADMIN, solo puede ver sus propias cotizaciones
+        if (!usuarioAutenticadoService.esAdmin(actual)) {
+            return repository.findByUsuarioIdOrderByFechaCreacionDesc(actual.getId());
+        }
 
         if (usuarioId != null) {
-        return repository.findByUsuarioIdOrderByFechaCreacionDesc(usuarioId);
+            return repository.findByUsuarioIdOrderByFechaCreacionDesc(usuarioId);
         }
 
         return repository.findAllByOrderByFechaCreacionDesc();
@@ -41,45 +50,41 @@ public class CotizacionService {
 
     public Cotizacion buscarPorId(Long id) {
         log.info("Buscando cotización por ID: {}", id);
-        return repository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(
-            HttpStatus.NOT_FOUND, "Cotización " + id + " no existe"));
+        Cotizacion cotizacion = repository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND, "Cotización " + id + " no existe"));
+
+        usuarioAutenticadoService.validarPropietarioOAdmin(cotizacion.getUsuario());
+        return cotizacion;
     }
 
     public Cotizacion guardar(Cotizacion datos) {
         log.info("Registrando nueva cotización");
+        Usuario usuario = usuarioAutenticadoService.obtenerUsuarioActual();
 
-        if (datos.getUsuario() == null || datos.getUsuario().getId() == null) {
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debes indicar el id del usuario");
+        if (!ROL_COTIZANTE.equalsIgnoreCase(usuario.getRol().getNombre())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "Solo los usuarios con rol " + ROL_COTIZANTE + " pueden cotizar");
         }
 
         validacion.fechaNoPasada(datos.getFechaEvento());
 
-        Usuario usuario = usuarioService.buscarPorId(datos.getUsuario().getId());
-
-        if (!ROL_COTIZANTE.equalsIgnoreCase(usuario.getRol().getNombre())) {
-        throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-            "Solo los usuarios con rol " + ROL_COTIZANTE + " pueden cotizar");
-        }
-
-        // Se crea uno nuevo para que id y fechaCreacion no puedan venir desde el cliente.
         Cotizacion cotizacion = new Cotizacion(
-        datos.getNombre().trim(),
-        datos.getTelefono(),
-        datos.getFechaEvento(),
-        datos.getDescripcion().trim(),
-        usuario);
+            datos.getNombre().trim(),
+            datos.getTelefono(),
+            datos.getFechaEvento(),
+            datos.getDescripcion().trim(),
+            usuario);
 
         return repository.saveAndFlush(cotizacion);
     }
 
-    // El usuario dueño de la cotización no se puede cambiar.
     public Cotizacion actualizar(Long id, Cotizacion datos) {
         log.info("Actualizando la cotización con ID: {}", id);
         Cotizacion cotizacion = buscarPorId(id);
 
         if (!datos.getFechaEvento().equals(cotizacion.getFechaEvento())) {
-        validacion.fechaNoPasada(datos.getFechaEvento());
+            validacion.fechaNoPasada(datos.getFechaEvento());
         }
 
         cotizacion.setNombre(datos.getNombre().trim());
@@ -95,19 +100,19 @@ public class CotizacionService {
         Cotizacion cotizacion = buscarPorId(id);
 
         if (datos.getNombre() != null) {
-        cotizacion.setNombre(datos.getNombre().trim());
+            cotizacion.setNombre(datos.getNombre().trim());
         }
         if (datos.getTelefono() != null) {
-        cotizacion.setTelefono(datos.getTelefono());
+            cotizacion.setTelefono(datos.getTelefono());
         }
         if (datos.getFechaEvento() != null) {
-        if (!datos.getFechaEvento().equals(cotizacion.getFechaEvento())) {
-            validacion.fechaNoPasada(datos.getFechaEvento());
-        }
-        cotizacion.setFechaEvento(datos.getFechaEvento());
+            if (!datos.getFechaEvento().equals(cotizacion.getFechaEvento())) {
+                validacion.fechaNoPasada(datos.getFechaEvento());
+            }
+            cotizacion.setFechaEvento(datos.getFechaEvento());
         }
         if (datos.getDescripcion() != null) {
-        cotizacion.setDescripcion(datos.getDescripcion().trim());
+            cotizacion.setDescripcion(datos.getDescripcion().trim());
         }
 
         validacion.validar(cotizacion);

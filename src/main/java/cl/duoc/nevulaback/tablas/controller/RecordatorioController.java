@@ -54,13 +54,13 @@ public class RecordatorioController {
     }
 
     @PostMapping
-    @Operation(summary = "Crear la lista de recordatorios de un usuario",
-        description = "Envía usuario.id. Responde 201, o 404 si el usuario no existe")
-    public ResponseEntity<EntityModel<Recordatorio>> crear(@Valid @RequestBody Recordatorio recordatorio) {
-        Recordatorio guardado = service.guardar(recordatorio);
+    @Operation(summary = "Crear la lista de recordatorios del usuario autenticado",
+        description = "Toma el usuario desde el token JWT. Responde 201")
+    public ResponseEntity<EntityModel<Recordatorio>> crear() {
+        Recordatorio guardado = service.guardar();
         return ResponseEntity
-        .created(linkTo(methodOn(RecordatorioController.class).buscarPorId(guardado.getId())).toUri())
-        .body(assembler.toModel(guardado));
+            .created(linkTo(methodOn(RecordatorioController.class).buscarPorId(guardado.getId())).toUri())
+            .body(assembler.toModel(guardado));
     }
 
     @DeleteMapping("/{id}")
