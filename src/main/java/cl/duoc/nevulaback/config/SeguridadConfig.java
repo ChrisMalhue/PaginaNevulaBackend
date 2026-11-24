@@ -56,7 +56,7 @@ public class SeguridadConfig {
             .authorizeHttpRequests(auth -> auth
                 // 1) Endpoints públicos: login, salud y documentación Swagger
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/salud/**", "/salud/**").permitAll()
+                .requestMatchers("/api/health", "/api/salud/**", "/salud/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
 
                 // 2) Catálogo público (lectura libre para visitantes)
