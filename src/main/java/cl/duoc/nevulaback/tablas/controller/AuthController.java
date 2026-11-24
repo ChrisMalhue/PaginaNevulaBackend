@@ -10,6 +10,9 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -39,23 +42,27 @@ public class AuthController {
         this.jwtService = jwtService;
     }
 
-    public record LoginRequest(
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class LoginRequest {
+
         @NotBlank(message = "El correo es obligatorio")
         @Email(message = "El correo no tiene un formato válido")
-        String correo,
+        private String correo;
 
         @NotBlank(message = "La contraseña es obligatoria")
-        String contrasena
-    ) {}
+        private String contrasena;
+    }
 
     @PostMapping("/login")
     @Operation(summary = "Iniciar sesión", description = "Valida correo y contraseña y devuelve un token JWT")
     public ResponseEntity> login(@Valid @RequestBody LoginRequest request) {
-        Usuario usuario = usuarioRepository.findByCorreo(request.correo().trim())
+        Usuario usuario = usuarioRepository.findByCorreo(request.getCorreo().trim())
             .orElseThrow(() -> new ResponseStatusException(
                 HttpStatus.UNAUTHORIZED, "Correo o contraseña incorrectos"));
 
-        if (!passwordEncoder.matches(request.contrasena(), usuario.getContrasena())) {
+        if (!passwordEncoder.matches(request.getContrasena(), usuario.getContrasena())) {
             throw new ResponseStatusException(
                 HttpStatus.UNAUTHORIZED, "Correo o contraseña incorrectos");
         }
