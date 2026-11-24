@@ -8,8 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -55,9 +54,17 @@ public class AuthController {
         private String contrasena;
     }
 
+    @Getter
+    @AllArgsConstructor
+    public static class LoginResponse {
+        private String token;
+        private String tipo;
+        private Usuario usuario;
+    }
+
     @PostMapping("/login")
     @Operation(summary = "Iniciar sesión", description = "Valida correo y contraseña y devuelve un token JWT")
-    public ResponseEntity> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         Usuario usuario = usuarioRepository.findByCorreo(request.getCorreo().trim())
             .orElseThrow(() -> new ResponseStatusException(
                 HttpStatus.UNAUTHORIZED, "Correo o contraseña incorrectos"));
@@ -68,13 +75,7 @@ public class AuthController {
         }
 
         String token = jwtService.generarToken(usuario);
-
-        Map<String, Object> respuesta = new LinkedHashMap<>();
-        respuesta.put("token", token);
-        respuesta.put("tipo", "Bearer");
-        respuesta.put("usuario", usuario);
-
-        return ResponseEntity.ok(respuesta);
+        return ResponseEntity.ok(new LoginResponse(token, "Bearer", usuario));
     }
 
     @GetMapping("/me")
