@@ -23,4 +23,3 @@ ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC -Xss512k -XX:Tie
 # Render entrega el puerto en la variable PORT (application.properties la lee).
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
-r
