@@ -63,7 +63,7 @@ public class SeguridadConfig {
                 .requestMatchers(HttpMethod.GET,
                     "/api/eventos/**",
                     "/api/djs/**",
-                    "/api/evento-djs/**",
+                    "/api/djs-evento/**",
                     "/api/locales/**",
                     "/api/comunas/**",
                     "/api/regiones/**",
@@ -83,7 +83,7 @@ public class SeguridadConfig {
                 .requestMatchers(
                     "/api/eventos/**",
                     "/api/djs/**",
-                    "/api/evento-djs/**",
+                    "/api/djs-evento/**",
                     "/api/locales/**",
                     "/api/comunas/**",
                     "/api/regiones/**",
