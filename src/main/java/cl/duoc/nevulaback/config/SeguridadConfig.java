@@ -72,13 +72,14 @@ public class SeguridadConfig {
                 ).permitAll()
 
                 // 3) Recursos de usuarios autenticados (USUARIO o ADMIN)
+                .requestMatchers(HttpMethod.POST, "/api/cotizaciones").hasAnyRole("USUARIO", "ADMIN")
                 .requestMatchers(
-                    "/api/cotizaciones/**",
                     "/api/recordatorios/**",
                     "/api/recordatorios-evento/**"
                 ).hasAnyRole("USUARIO", "ADMIN")
 
                 // 4) Administración (solo ADMIN)
+                .requestMatchers("/api/cotizaciones/**").hasRole("ADMIN")
                 .requestMatchers("/api/roles/**", "/api/usuarios/**").hasRole("ADMIN")
                 .requestMatchers(
                     "/api/eventos/**",
