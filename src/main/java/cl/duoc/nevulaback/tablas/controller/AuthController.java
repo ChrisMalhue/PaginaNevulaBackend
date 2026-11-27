@@ -87,7 +87,7 @@ public class AuthController {
         private Usuario usuario;
     }
 
-    @PostMapping({"/registro", "/register"})
+    @PostMapping({"/registro"})
     @Operation(summary = "Registrar nuevo usuario",
         description = "Crea una cuenta con rol USUARIO por defecto, la guarda en BD y devuelve su token JWT")
     public ResponseEntity<LoginResponse> registrar(@Valid @RequestBody RegistroRequest request) {
