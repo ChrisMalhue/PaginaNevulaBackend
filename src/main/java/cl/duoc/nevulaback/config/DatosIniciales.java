@@ -122,7 +122,7 @@ public class DatosIniciales implements CommandLineRunner {
         Imagen img5 = imagenRepository.save(new Imagen(
             "https://i.ibb.co/JW9mXd9z/evento5.webp", "Flyer Secret Spot Ñuñoa"));
         Imagen img6 = imagenRepository.save(new Imagen(
-            "https://i.ibb.co/9m11bs4R/evento6.webp", "Flyer Rock x Palestina"));
+            "https://i.ibb.co/HpKnq6DX/evento6.webp", "Flyer Rock x Palestina"));
 
         // 6) Locales. Los Secret Spot son secretos: no llevan dirección ni link de mapa.
         Local azotea = localRepository.save(new Local("Azotea Los Dominicos", null, null, lasCondes));
